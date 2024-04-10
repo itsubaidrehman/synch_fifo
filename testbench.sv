@@ -29,3 +29,36 @@ class transaction;
     copy.empty = this.empty;
   endfunction
 endclass
+
+
+class generator;
+  //randomize transaction
+  //send transaction to the driver
+  //sense transaction from SCO and driver -> next transaction
+  
+  transaction tr;
+  mailbox #(transaction) mbx;  //data will be transferring from gen to drv through mailbox
+  int count = 0;
+  event next;   //when to send next transac
+  event done;   //conveys no of requested transac completed
+  
+  function new(mailbox #(transaction) mbx);
+    this.mbx = mbx;
+    tr = new();
+  endfunction
+  
+  
+  task run();
+    repeat (count)
+      begin
+        assert (tr.randomize()) else $error("Randomization Failed");
+        mbx.put(tr.copy); //As randmization is success we want to send the transaction copy                             to the driver class
+        tr.display("GEN");
+        @(next); //waiting to receive the trigger from another class to send the                             transaction
+      end
+    
+    ->done; // will be triggered when the no of counts transaction will be completed
+  
+  endtask
+endclass
+
