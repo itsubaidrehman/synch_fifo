@@ -62,3 +62,44 @@ class generator;
   endtask
 endclass
 
+class driver;
+  //receive transac from gen
+  //Apply reset to dut
+  //Apply transac to dut with interface
+  //Notify Gen - > completeion of interface trigger
+  
+  virtual fifo_if vif;
+  
+  mailbox #(transaction) mbx;
+  
+  transaction datac;
+  event next;
+  
+  function new(mailbox #(transaction) mbx);
+    this.mbx = mbx;
+    
+  endfunction
+  
+  
+  task reset();
+    vif.rst <= 1'b1;
+    vif.rd <= 0;
+    vif.wr <= 0;
+    vif.data_in <= 0;
+    repeat (5) @(posedge vif.clock);
+    vif.rst <= 1'b0;
+  endtask
+  
+  task run();    //Applying Random Stimulus to DUT
+    forever 
+      begin
+        mbx.get(datac);
+        datac.display("DRV");
+        vif.rd <= datac.rd;
+        vif.wr <= datac.wr;
+        vif.data_in <= datac.data_in;
+        repeat (2) @(posedge vif.clock);
+        
+      end
+  endtask
+endclass
