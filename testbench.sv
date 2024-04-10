@@ -103,3 +103,86 @@ class driver;
       end
   endtask
 endclass
+
+class monitor;
+  //capture DUT response
+  //send response transaction to scoreboard
+  //control data to be send for specific operation
+  
+  virtual fifo_if vif;
+  transaction tr;
+  mailbox #(transaction) mbx;
+  
+  function new(mailbox #(transaction) mbx);
+    this.mbx = mbx;
+    //count = 0;
+  endfunction
+  
+  task run();
+    tr = new();
+    forever
+      begin
+        repeat (2) @(posedge vif.clock);
+        tr.rd <= vif.rd;
+        tr.wr <= vif.wr;
+        tr.data_in <= vif.data_in;
+        tr.full <= vif.full;
+        tr.empty <= vif.empty;
+        tr.data_out <= vif.data_out;
+        mbx.put(tr);
+        tr.display("Mon");
+          
+      end
+  endtask
+endclass
+
+
+class scoreboard;
+  
+  //receive transac from monitor
+  //store transac
+  //compare with expected result
+  mailbox #(transaction) mbx;
+  transaction tr;
+  event next;
+  
+  bit [7:0] din [$]; ////Queue will help to push/write data in queue and read/pop data
+                     //will help in not to worry about arrangement of data
+  bit [7:0] temp;
+  
+  function new(mailbox #(transaction) mbx);
+    this.mbx = mbx;
+    
+  endfunction
+  
+  task run();
+    forever
+      begin
+        mbx.get(tr);
+        tr.display("SCO");
+        if (tr.wr == 1'b1)
+          begin
+            din.push_front(tr.data_in);
+            $display(" [SCO] Data stored in queue : %0d", tr.data_in);
+          end
+        
+        if (tr.rd == 1'b1)
+          begin
+            if (tr.empty == 1'b0)
+              begin
+                temp = din.pop_back();
+                if (tr.data_out == temp)
+                  $display(" [SCO] Data Matched");
+                else
+                  $display("Data Mismatched");
+              end
+            else
+              $display("fifo is empty");
+          end
+        
+        ->next;
+      end
+  endtask
+  
+  
+endclass
