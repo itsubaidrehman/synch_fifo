@@ -186,3 +186,101 @@ class scoreboard;
   
   
 endclass
+
+
+class environment;
+  //holds all classes together
+  //schedule different processes
+  //connects mailbox events
+  
+  generator gen;
+  driver drv;
+  mailbox #(transaction) gdmbx;
+  
+  
+  monitor mon;
+  scoreboard sco;
+  mailbox #(transaction) msmbx;
+  
+  event nextgs;
+  
+  virtual fifo_if vif;
+  
+  function new(virtual fifo_if vif);
+    gdmbx = new();
+    gen = new(gdmbx);
+    drv = new(gdmbx);
+    
+    msmbx = new();
+    mon = new(msmbx);
+    sco = new(msmbx);
+    
+    this.vif = vif;
+    
+    drv.vif = this.vif;
+    mon.vif = this.vif;
+    
+    gen.next = nextgs;
+    sco.next = nextgs;
+  endfunction
+  
+  task pre_test();
+    drv.reset();
+  endtask
+  
+  task test();
+    fork
+      gen.run();
+      drv.run();
+      mon.run();
+      sco.run();
+    join_any
+    
+  endtask
+  
+  task post_test();
+    wait(gen.done.triggered);
+    $finish;
+  endtask
+  
+  task run();
+    pre_test();
+    test();
+    post_test();
+  endtask
+  
+endclass
+
+
+module tb;
+    
+   
+    
+    fifo_if vif();
+  fifo dut (vif.clock, vif.rd, vif.wr,vif.full, vif.empty, vif.data_in, vif.data_out, vif.rst);
+    
+    initial begin
+      vif.clock <= 0;
+    end
+    
+    always #10 vif.clock <= ~vif.clock;
+    
+    environment env;
+    
+    
+    
+    initial begin
+      env = new(vif);
+      env.gen.count = 20;
+      env.run();
+    end
+      
+    
+    initial begin
+      $dumpfile("dump.vcd");
+      $dumpvars;
+    end
+   
+    
+endmodule
+
